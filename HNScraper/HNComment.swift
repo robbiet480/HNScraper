@@ -33,10 +33,21 @@ open class HNComment: BaseComment {
     public override init(level: Int, replyTo: BaseComment?) {
         super.init(level: level, replyTo: replyTo)
     }
-    public enum HNCommentType {
+    public enum HNCommentType: Int, CaseIterable {
         case defaultType
         case askHN
         case jobs
+
+        var description: String {
+            switch self {
+            case .defaultType:
+                return "Default"
+            case .askHN:
+                return "Ask HN"
+            case .jobs:
+                return "Jobs"
+            }
+        }
     }
     
     

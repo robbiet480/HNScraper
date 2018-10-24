@@ -14,14 +14,16 @@ public class HNScraper {
     private init() {}
     
     
-    // TODO: put those canstant in the parsingConfig json file
+    // TODO: put those constants in the parsingConfig json file
     public static let baseUrl = "https://news.ycombinator.com/"
     
     // Following variables are used by the parsing function.
     // They have to be filled before those function are called.
     private var postsHtmlToBeParsed: String?
     private var commentsHtmlToBeParsed: String?
-    
+
+    // Set to true to allow stories marked [dead] to be parsed
+    public var parseDead: Bool = false
     
     // ==================================================
     // MARK: - types definition
@@ -37,7 +39,7 @@ public class HNScraper {
     public typealias PostListDownloadCompletionHandler = (([HNPost], String?, HNScraperError?) -> Void) // (list, linkForMore, error)
     
     /// Supported post list pages
-    public enum PostListPageName {
+    public enum PostListPageName: Int, CaseIterable {
         /// Home page
         case news
         // Today's front page
@@ -58,6 +60,41 @@ public class HNScraper {
         case best
         /// More recent, only by new users
         case noob
+
+        var description: String {
+            switch self {
+            /// Home page
+            case .news:
+                return "News"
+            // Today's front page
+            case .front:
+                return "Front"
+            /// Latest submissions
+            case .new:
+                return "New"
+            /// Jobs only (new first)
+            case .jobs:
+                return "Jobs"
+            /// Asks only (new first)
+            case .asks:
+                return "Ask HN"
+            /// Shows only (top)
+            case .shows:
+                return "Show HN (Top)"
+            /// Shows only (latest)
+            case .newshows:
+                return "Show HN (Latest)"
+            /// All news with most active discussion thread first
+            case .active:
+                return "Active"
+            /// Highest (recent) score
+            case .best:
+                return "Best"
+            /// More recent, only by new users
+            case .noob:
+                return "Noob"
+            }
+        }
     }
     
     /// Errors thrown by the scraper
@@ -82,7 +119,7 @@ public class HNScraper {
         case noSuchPost
         case unknown
         
-        init?(_ error: RessourceFetcher.RessourceFetchingError?) {
+        init?(_ error: ResourceFetcher.RessourceFetchingError?) {
             if error == nil {
                 return nil
             }
@@ -175,7 +212,7 @@ public class HNScraper {
                 return
             }
             self.commentsHtmlToBeParsed = html
-            if let post = HNPost(fromHtml: html!, withParsingConfig: parseConfig) {
+            if let post = HNPost(fromHtml: html!, withParsingConfig: parseConfig, allowDead: self.parseDead) {
                 self.parseDownloadedComments(ForPost: post, buildHierarchy: buildHierarchy, completion: { post, comments, linkFormore, error -> Void in completion(post, comments, error) })
             } else {
                 completion(nil, [], .parsingError)
@@ -192,7 +229,7 @@ public class HNScraper {
      parameter when the download is completed
      */
     private func downloadHtmlPage(urlString: String, cookie: HTTPCookie? = nil, completion: @escaping ((String?, HNScraperError?) -> Void)) {
-        RessourceFetcher.shared.fetchData(urlString: urlString, completion: {(data, error) -> Void in
+        ResourceFetcher.shared.fetchData(urlString: urlString, completion: {(data, error) -> Void in
             if data == nil {
                 completion(nil, HNScraperError(error) ?? .noData)
             } else {
@@ -251,11 +288,12 @@ public class HNScraper {
         htmlComponents.remove(at: 0)
         for htmlComponent in htmlComponents {
             
-            if let newPost = HNPost(fromHtml: htmlComponent, withParsingConfig: parseConfig!) {
+            if let newPost = HNPost(fromHtml: htmlComponent, withParsingConfig: parseConfig!, allowDead: self.parseDead) {
                 postAr.append(newPost)
             } else {
                 // TODO: better logging
-                print("There was an error while parsing a downloaded post.") // returns a parsingError only if all the components fail to be parsed.
+                // returns a parsingError only if all the components fail to be parsed.
+                print("There was an error while parsing a downloaded post (all components failed to be parsed).")
             }
             
             // If last item of the page, try to grab the link for next page.
@@ -484,7 +522,7 @@ public class HNScraper {
                 rootComments.append(newComment)
                 lastCommentByLevel[0] = newComment
             } else {
-                print("error parsing AskHN comment")
+                print("Error while parsing AskHN comment")
                 completion(post, [], nil, .parsingError)
                 return
             }
@@ -497,7 +535,7 @@ public class HNScraper {
                 rootComments.append(newComment)
                 lastCommentByLevel[0] = newComment
             } else {
-                print("error parsing Job comment")
+                print("Error while parsing Job comment")
                 completion(post, [], nil, .parsingError)
                 return
             }
@@ -526,7 +564,7 @@ public class HNScraper {
                     linkForMore = parseLinkForMoreFromCommentsList(html: htmlComponent, withParsingConfig: parseConfig!)
                 }
             } else {
-                print("error parsing comment")
+                print("Error parsing comment")
             }
             
             

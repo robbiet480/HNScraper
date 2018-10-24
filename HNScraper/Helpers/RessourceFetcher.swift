@@ -1,5 +1,5 @@
 //
-//  HNHelpers.swift
+//  ResourceFetcher.swift
 //  HackerNews2
 //
 //  Created by Stéphane Sercu on 8/09/17.
@@ -8,10 +8,8 @@
 
 import UIKit
 
-
-
 /// Singleton implementation of a GET/POST request sender
-class RessourceFetcher {
+class ResourceFetcher {
     public typealias FetchCompletion = (_ data: Data?, _ error: RessourceFetchingError?) -> Void
     public typealias JsonFetchCompletion = (_ json: Dictionary<String, Any>?, _ error: RessourceFetchingError?) -> Void
     
@@ -52,7 +50,7 @@ class RessourceFetcher {
         
     }
     
-    static let shared = RessourceFetcher()
+    static let shared = ResourceFetcher()
     
     /// Fetches the ressource pointed by the specified url and passes it to the completionHandler
     func fetchData(urlString: String, completion: @escaping FetchCompletion, timeout: TimeInterval = 20) {

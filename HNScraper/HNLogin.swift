@@ -45,7 +45,7 @@ public class HNLogin {
         case noInternet
         case unknown
         
-        init?(_ error: RessourceFetcher.RessourceFetchingError?) {
+        init?(_ error: ResourceFetcher.RessourceFetchingError?) {
             self.init(HNScraper.HNScraperError(error))
         }
         init?(_ error: HNScraper.HNScraperError?) {
@@ -94,7 +94,7 @@ public class HNLogin {
             return
         }
         
-        RessourceFetcher.shared.post(urlString: url, data: bodyData, completion: {data, reponse, error -> Void in
+        ResourceFetcher.shared.post(urlString: url, data: bodyData, completion: {data, reponse, error -> Void in
             if data == nil {
                 completion(nil, nil, HNLoginError(error) ?? .unknown)
                 return
@@ -156,7 +156,7 @@ public class HNLogin {
     private func getLoggedInUser(user: HNUser, completion: @escaping ((HNUser?, HTTPCookie?, HNLoginError?) -> Void)) {
         let url = "https://news.ycombinator.com/user?id=\(user.username!)"
         
-        RessourceFetcher.shared.fetchData(urlString: url, completion: {(data, error) -> Void in
+        ResourceFetcher.shared.fetchData(urlString: url, completion: {(data, error) -> Void in
             
             if let html = String(data: data!, encoding: .utf8) {
                 var newUser: HNUser?
@@ -192,7 +192,7 @@ public class HNLogin {
     private func getUsernameFromCookie(_ cookie: HTTPCookie, completion: @escaping ((HNUser?, HTTPCookie?, HNLoginError?) -> Void)) {
         let url = "https://news.ycombinator.com/user?id=pg" // any valid url would do
         
-        RessourceFetcher.shared.fetchData(urlString: url, completion: {(data, error) -> Void in
+        ResourceFetcher.shared.fetchData(urlString: url, completion: {(data, error) -> Void in
             if data != nil {
                 if let html = String(data: data!, encoding: .utf8)  {
                     if (!html.contains("<a href=\"logout")) {

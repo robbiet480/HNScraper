@@ -8,10 +8,9 @@
 
 import Foundation
 
-
 /// Model used by the HN Scraper to store avery data about a post.
 open class HNPost {
-    public enum PostType {
+    public enum PostType: Int, CaseIterable {
         case defaultType
         case askHN
         case jobs
@@ -24,11 +23,23 @@ open class HNPost {
             default: return nil
             }
         }
+
+        var description: String {
+            switch self {
+            case .defaultType:
+                return "Default"
+            case .askHN:
+                return "Ask HN"
+            case .jobs:
+                return "Jobs"
+            }
+        }
     }
     
     public var type: PostType = .defaultType
     public var username: String = ""
     public var isOPNoob: Bool = false
+    public var isDead: Bool = false
     public var url: URL?// = URL(string: "")!
     public var urlDomain: String {
         get {
@@ -50,8 +61,9 @@ open class HNPost {
     
     public var upvoted: Bool = false
     public var upvoteAdditionURL: String?
-    
-    public var favorited: Bool = false // TODO: there's no way to know from a "list page", but it could be filled from the discussion thread.
+
+    // TODO: there's no way to know from a "list page", but it could be filled from the discussion thread.
+    public var favorited: Bool = false
     
     public var replyAction: String?
     public var replyParent: String?
@@ -68,44 +80,45 @@ open class HNPost {
      *      - html: the html code to parse
      *      - parseConfig: the parameters from the json file containing all the needed parsing informations.
      */
-    public convenience init?(fromHtml html: String, withParsingConfig parseConfig: [String : Any]) {
+    public convenience init?(fromHtml html: String, withParsingConfig parseConfig: [String : Any], allowDead: Bool) {
         self.init()
         
         var postsConfig: [String : Any]? = (parseConfig["Post"] != nil) ? parseConfig["Post"] as? [String : Any] : nil
         if postsConfig == nil {
             return nil
         }
-        
+
         if html.contains("<td class=\"title\"> [dead] <a") {
-            return nil
+            if allowDead == false {
+                return nil
+            }
+            self.isDead = true
         }
-        
-        
+
         // Set Up for Scanning
         var postDict: [String : Any] = [:]
         let scanner: Scanner = Scanner(string: html)
         var upvoteString: NSString? = ""
-        
-        
+
         // Scan for Upvotes
         if (html.contains((postsConfig!["Vote"] as! [String: String])["R"]!)) {
             scanner.scanBetweenString(stringA: (postsConfig!["Vote"] as! [String: String])["S"]!, stringB: (postsConfig!["Vote"] as! [String: String])["E"]!, into: &upvoteString)
             self.upvoteAdditionURL = upvoteString! as String;
         }
-        
+
         // Scan from JSON Configuration
-        let parts = postsConfig!["Parts"] as! [[String : Any]]
+        let parts = postsConfig!["Parts"] as! [[String : String]]
         for part in parts {
             var new: NSString? = ""
-            let isTrash = part["I"] as! String  == "TRASH"
-            
-            scanner.scanBetweenString(stringA: part["S"] as! String, stringB: part["E"] as! String, into: &new)
+            let isTrash = part["I"] == "TRASH"
+
+            scanner.scanBetweenString(stringA: part["S"]!, stringB: part["E"]!, into: &new)
+
             if (!isTrash && (new?.length)! > 0) {
-                postDict[part["I"] as! String] = new
+                postDict[part["I"]!] = new
             }
         }
-        
-        
+
         // Set Values
         self.url = postDict["UrlString"] != nil ? URL(string: postDict["UrlString"] as! String) : nil
         self.title = postDict["Title"] as? String ?? ""
@@ -114,21 +127,20 @@ open class HNPost {
         self.isOPNoob = HNUser.cleanNoobUsername(username: &self.username)
         self.id = postDict["PostId"] as? String ?? ""
         self.time = postDict["Time"] as? String ?? ""
+
         if self.id != "" && html.contains("<a id='un_\(self.id)") {
             self.upvoted = true
         }
-        
-        
+
         if (postDict["Comments"] != nil && postDict["Comments"] as! String == "discuss") {
             self.commentCount = 0;
-        }
-        else if (postDict["Comments"] != nil) {
+        } else if (postDict["Comments"] != nil) {
             let cScan: Scanner = Scanner(string: postDict["Comments"] as! String)
             var cCount: NSString? = ""
             cScan.scanUpTo(" ", into: &cCount)
             self.commentCount = Int((cCount?.intValue)!)
         }
-        
+
         // Check if Jobs Post
         if (self.id.count == 0 && self.points == 0 && self.username.count == 0) {
             self.type = .jobs
@@ -136,17 +148,19 @@ open class HNPost {
                 self.id = self.url!.absoluteString.replacingOccurrences(of: "item?id=", with: "")
                 self.url = URL(string: "https://news.ycombinator.com/" + self.url!.absoluteString)!
             }
-        }
-        else {
+        } else {
             // Check if AskHN
             if self.url != nil && !self.url!.absoluteString.contains("http") && self.id.count > 0 {
                 self.type = .askHN
                 self.url = URL(string: "https://news.ycombinator.com/" + self.url!.absoluteString)!
-            }
-            else {
+            } else {
                 self.type = .defaultType
             }
         }
+    }
+
+    public var description: String {
+        return "HNPost: type: \(self.type.description), ID: \(self.id), points: \(self.points), comments: \(self.commentCount)"
     }
 }
 
